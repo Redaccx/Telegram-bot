@@ -2,14 +2,44 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import yt_dlp
 import os
+import json
+from datetime import datetime
+from flask import Flask
+import threading
 
 TOKEN = "8594390840:AAEwF-2xPrnuXv7Ldlg7FI1HXegVcGTWKsQ"
 
-user_url = {}  # تخزين الرابط
+user_url = {}
 
+# ---------------- تخزين المستخدمين ----------------
+try:
+    with open("users.json", "r") as f:
+        users = json.load(f)
+except:
+    users = {}
+
+def save_users():
+    with open("users.json", "w") as f:
+        json.dump(users, f, indent=4)
+
+# ---------------- Flask (حتى ما ينام) ----------------
+app_flask = Flask(__name__)
+
+@app_flask.route('/')
+def home():
+    return "Bot is running!"
 
 # ---------------- START ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.message.from_user
+    user_id = str(user.id)
+
+    users[user_id] = {
+        "username": user.username,
+        "name": user.first_name,
+        "time": str(datetime.now())
+    }
+    save_users()
 
     keyboard = [
         [InlineKeyboardButton("📸 تابعنا على إنستغرام", url="https://www.instagram.com/beweble")]
@@ -25,11 +55,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-
 # ---------------- استقبال الرابط ----------------
 async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     url = update.message.text
+
+    print(f"{user_id}: {url}")  # يظهر في Logs
 
     user_url[user_id] = url
 
@@ -45,7 +76,6 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-
 # ---------------- اختيار النوع ----------------
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -59,7 +89,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     mode = query.data
-
     msg = await query.edit_message_text("⏳ جاري التحميل...")
 
     try:
@@ -93,21 +122,26 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.remove(filename)
 
         await msg.edit_text("✅ تم التحميل بنجاح 🔥")
-
-        # تنظيف
         user_url.pop(user_id, None)
 
     except Exception as e:
         await msg.edit_text("❌ صار خطأ بالرابط")
         print(e)
 
-
 # ---------------- تشغيل البوت ----------------
-app = ApplicationBuilder().token(TOKEN).build()
+def run_bot():
+    application = ApplicationBuilder().token(TOKEN).build()
 
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download))
-app.add_handler(CallbackQueryHandler(button))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download))
+    application.add_handler(CallbackQueryHandler(button))
 
-print("Bot is running...")
-app.run_polling()
+    print("Bot is running...")
+    application.run_polling()
+
+# تشغيل Thread
+threading.Thread(target=run_bot).start()
+
+# تشغيل Flask
+if __name__ == "__main__":
+    app_flask.run(host="0.0.0.0", port=10000)

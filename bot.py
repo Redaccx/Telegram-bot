@@ -3,9 +3,10 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Cal
 import yt_dlp
 import os
 
-TOKEN = "PUT_YOUR_TOKEN_HERE"
+TOKEN = "8594390840:AAEwF-2xPrnuXv7Ldlg7FI1HXegVcGTWKsQ"
 
-user_mode = {}  # حفظ اختيار المستخدم
+user_url = {}   # حفظ الرابط لكل مستخدم
+user_mode = {}  # حفظ اختيار النوع
 
 
 # ---------------- START ----------------
@@ -32,24 +33,19 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    user_mode[query.from_user.id] = query.data
+    user_id = query.from_user.id
+    user_mode[user_id] = query.data
 
-    if query.data == "video":
-        await query.edit_message_text("🎥 تمام! ابعت الرابط وأنا بحمّل الفيديو 🔥")
-    else:
-        await query.edit_message_text("🎵 تمام! ابعت الرابط وأنا بحمّل الموسيقى 🔥")
+    url = user_url.get(user_id)
 
+    if not url:
+        await query.edit_message_text("❌ ابعت الرابط أولاً")
+        return
 
-# ---------------- DOWNLOAD ----------------
-async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = update.message.text
-    user_id = update.message.from_user.id
-    mode = user_mode.get(user_id, "video")
-
-    msg = await update.message.reply_text("⏳ جاري التحميل... انتظر قليلاً 🔥")
+    msg = await query.edit_message_text("⏳ جاري التحميل...")
 
     try:
-        if mode == "audio":
+        if query.data == "audio":
             ydl_opts = {
                 'format': 'bestaudio/best',
                 'outtmpl': 'audio.%(ext)s',
@@ -70,19 +66,43 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
 
-        # إرسال الملف
-        if mode == "audio":
-            audio_file = filename.replace(".webm", ".mp3")
-            await update.message.reply_audio(audio=open(audio_file, "rb"))
+        if query.data == "audio":
+            audio_file = os.path.splitext(filename)[0] + ".mp3"
+            await query.message.reply_audio(audio=open(audio_file, "rb"))
             os.remove(audio_file)
         else:
-            await update.message.reply_video(video=open(filename, "rb"))
+            await query.message.reply_video(video=open(filename, "rb"))
             os.remove(filename)
 
         await msg.edit_text("✅ تم التحميل بنجاح 🔥")
 
-    except Exception:
+        # تنظيف البيانات
+        user_url.pop(user_id, None)
+        user_mode.pop(user_id, None)
+
+    except Exception as e:
         await msg.edit_text("❌ الرابط غير مدعوم أو في مشكلة")
+        print(e)
+
+
+# ---------------- DOWNLOAD (استقبال الرابط فقط) ----------------
+async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    url = update.message.text
+
+    user_url[user_id] = url
+
+    keyboard = [
+        [
+            InlineKeyboardButton("🎥 فيديو", callback_data="video"),
+            InlineKeyboardButton("🎵 موسيقى", callback_data="audio")
+        ]
+    ]
+
+    await update.message.reply_text(
+        "📥 تم استلام الرابط\nاختر نوع التحميل 👇",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 
 # ---------------- MAIN APP ----------------

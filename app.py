@@ -7,7 +7,7 @@ from datetime import datetime
 from flask import Flask, request
 
 TOKEN = "8594390840:AAEwF-2xPrnuXv7Ldlg7FI1HXegVcGTWKsQ"
-URL = "https://telegram-bot-ep0d.onrender.com"  # حط رابط مشروعك
+URL = "https://telegram-bot-dj07.onrender.com"  # حط رابط مشروعك
 
 user_url = {}
 

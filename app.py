@@ -5,13 +5,17 @@ import os
 import json
 from datetime import datetime
 from flask import Flask, request
+import asyncio
 
-TOKEN = "8594390840:AAFXaAT6tRDVIr2S-Ydzp4riduoXAbPqAx0"
-URL = "https://telegram-bot-dj07.onrender.com"  # حط رابط مشروعك
+# ---------------- TOKEN ----------------
+TOKEN = "8594390840:AAHBJFt8rXamY6UCWQHUuVWLKNBEIBD9EOw"
+
+# ---------------- URL (Render link) ----------------
+URL = "https://telegram-bot-dj07.onrender.com"
 
 user_url = {}
 
-# ---------------- تخزين المستخدمين ----------------
+# ---------------- users storage ----------------
 try:
     with open("users.json", "r") as f:
         users = json.load(f)
@@ -47,19 +51,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "✨ أهلاً بك في MediaX Bot 🔥\n\n"
         "📥 أرسل أي رابط وسأعطيك خيار التحميل\n"
-        "🎥 فيديو أو 🎵 موسيقى\n"
-        "━━━━━━━━━━━━━━\n"
-        "👨‍💻 Programming by Rida Jomaa\n\n"
-        "📸 تابعنا على إنستغرام 👇",
+        "🎥 فيديو أو 🎵 موسيقى",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# ---------------- استقبال الرابط ----------------
+# ---------------- download ----------------
 async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     url = update.message.text
 
-    print(f"{user_id}: {url}")
     user_url[user_id] = url
 
     keyboard = [
@@ -74,7 +74,7 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# ---------------- اختيار النوع ----------------
+# ---------------- button ----------------
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -126,25 +126,29 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text("❌ صار خطأ بالرابط")
         print(e)
 
-# ---------------- ربط الهاندلرز ----------------
+# ---------------- handlers ----------------
 application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download))
 application.add_handler(CallbackQueryHandler(button))
 
-# ---------------- Webhook route ----------------
+# ---------------- webhook route ----------------
 @app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
     update = Update.de_json(request.get_json(force=True), application.bot)
     application.update_queue.put_nowait(update)
     return "ok"
 
-# ---------------- الصفحة الرئيسية ----------------
+# ---------------- home ----------------
 @app.route("/")
 def home():
     return "Bot is running!"
 
-# ---------------- تشغيل ----------------
+# ---------------- SET WEBHOOK ----------------
+async def set_webhook():
+    await application.bot.set_webhook(url=f"{URL}/{TOKEN}")
+
+# ---------------- RUN ----------------
 if __name__ == "__main__":
-    application.bot.set_webhook(url=f"{URL}/{TOKEN}")
+    asyncio.run(set_webhook())
     print("Webhook set!")
     app.run(host="0.0.0.0", port=10000)

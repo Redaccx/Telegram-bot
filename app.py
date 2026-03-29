@@ -1,5 +1,5 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters, CallbackContext
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import yt_dlp
 import os
 import json
@@ -20,7 +20,7 @@ def save_users():
         json.dump(users, f, indent=4)
 
 # ---------------- START ----------------
-def start(update: Update, context: CallbackContext):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = str(user.id)
 
@@ -35,13 +35,13 @@ def start(update: Update, context: CallbackContext):
         [InlineKeyboardButton("📸 Instagram", url="https://www.instagram.com/beweble")]
     ]
 
-    update.message.reply_text(
+    await update.message.reply_text(
         "✨ Welcome to MediaX Bot 🔥\n\nSend a link to download 🎥 / 🎵\n\n👨‍💻 Developed by Rida Jomaa",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 # ---------------- DOWNLOAD ----------------
-def download(update: Update, context: CallbackContext):
+async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     url = update.message.text
 
@@ -54,25 +54,25 @@ def download(update: Update, context: CallbackContext):
         ]
     ]
 
-    update.message.reply_text(
+    await update.message.reply_text(
         "Choose type:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 # ---------------- BUTTON ----------------
-def button(update: Update, context: CallbackContext):
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    query.answer()
+    await query.answer()
 
     user_id = query.from_user.id
     url = user_url.get(user_id)
 
     if not url:
-        query.edit_message_text("Send link first ❌")
+        await query.edit_message_text("Send link first ❌")
         return
 
     mode = query.data
-    msg = query.edit_message_text("Downloading... ⏳")
+    msg = await query.edit_message_text("Downloading... ⏳")
 
     try:
         if mode == "audio":
@@ -98,33 +98,33 @@ def button(update: Update, context: CallbackContext):
 
         if mode == "audio":
             audio_file = os.path.splitext(filename)[0] + ".mp3"
-            with open(audio_file, "rb") as f:
-                query.message.reply_audio(audio=f)
-            os.remove(audio_file)
+            if os.path.exists(audio_file):
+                with open(audio_file, "rb") as f:
+                    await query.message.reply_audio(audio=f)
+                os.remove(audio_file)
         else:
-            with open(filename, "rb") as f:
-                query.message.reply_video(video=f)
-            os.remove(filename)
+            if os.path.exists(filename):
+                with open(filename, "rb") as f:
+                    await query.message.reply_video(video=f)
+                os.remove(filename)
 
-        query.edit_message_text("Done ✅")
+        await msg.edit_text("Done ✅")
         user_url.pop(user_id, None)
 
     except Exception as e:
-        query.edit_message_text("Error ❌")
-        print(e)
+        await msg.edit_text("Error ❌")
+        print("ERROR:", e)
 
 # ---------------- MAIN ----------------
 def main():
-    updater = Updater(TOKEN, use_context=True)
+    application = ApplicationBuilder().token(TOKEN).build()
 
-    dp = updater.dispatcher
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download))
+    application.add_handler(CallbackQueryHandler(button))
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, download))
-    dp.add_handler(CallbackQueryHandler(button))
-
-    updater.start_polling()
-    updater.idle()
+    print("Bot is running...")
+    application.run_polling()
 
 if __name__ == "__main__":
     main()

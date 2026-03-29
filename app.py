@@ -40,8 +40,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "✨ أهلاً بك في MediaX Bot 🔥\n\n"
         "📥 أرسل أي رابط وسأعطيك خيار التحميل\n"
-        "🎥 فيديو أو 🎵 موسيقى"
-    , reply_markup=InlineKeyboardMarkup(keyboard))
+        "🎥 فيديو أو 🎵 موسيقى",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 # ---------------- DOWNLOAD ----------------
 async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -99,20 +100,28 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
 
+        # ---------------- SEND AUDIO ----------------
         if mode == "audio":
             audio_file = os.path.splitext(filename)[0] + ".mp3"
-            await query.message.reply_audio(audio=open(audio_file, "rb"))
-            os.remove(audio_file)
+
+            if os.path.exists(audio_file):
+                with open(audio_file, "rb") as f:
+                    await query.message.reply_audio(audio=f)
+                os.remove(audio_file)
+
+        # ---------------- SEND VIDEO ----------------
         else:
-            await query.message.reply_video(video=open(filename, "rb"))
-            os.remove(filename)
+            if os.path.exists(filename):
+                with open(filename, "rb") as f:
+                    await query.message.reply_video(video=f)
+                os.remove(filename)
 
         await msg.edit_text("✅ تم التحميل بنجاح 🔥")
         user_url.pop(user_id, None)
 
     except Exception as e:
-        await msg.edit_text("❌ صار خطأ بالرابط")
-        print(e)
+        await msg.edit_text("❌ صار خطأ بالرابط أو التحميل")
+        print("ERROR:", e)
 
 # ---------------- MAIN ----------------
 def main():

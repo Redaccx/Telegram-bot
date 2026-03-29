@@ -4,10 +4,10 @@ import yt_dlp
 import os
 import json
 from datetime import datetime
-from flask import Flask
-import threading
+from flask import Flask, request
 
 TOKEN = "8594390840:AAEwF-2xPrnuXv7Ldlg7FI1HXegVcGTWKsQ"
+URL = "https://telegram-bot-ep0d.onrender.com"  # حط رابط مشروعك
 
 user_url = {}
 
@@ -22,12 +22,11 @@ def save_users():
     with open("users.json", "w") as f:
         json.dump(users, f, indent=4)
 
-# ---------------- Flask (حتى ما ينام) ----------------
-app_flask = Flask(__name__)
+# ---------------- Flask ----------------
+app = Flask(__name__)
 
-@app_flask.route('/')
-def home():
-    return "Bot is running!"
+# ---------------- Telegram App ----------------
+application = ApplicationBuilder().token(TOKEN).build()
 
 # ---------------- START ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -60,8 +59,7 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     url = update.message.text
 
-    print(f"{user_id}: {url}")  # يظهر في Logs
-
+    print(f"{user_id}: {url}")
     user_url[user_id] = url
 
     keyboard = [
@@ -128,20 +126,25 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text("❌ صار خطأ بالرابط")
         print(e)
 
-# ---------------- تشغيل البوت ----------------
-def run_bot():
-    application = ApplicationBuilder().token(TOKEN).build()
+# ---------------- ربط الهاندلرز ----------------
+application.add_handler(CommandHandler("start", start))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download))
+application.add_handler(CallbackQueryHandler(button))
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download))
-    application.add_handler(CallbackQueryHandler(button))
+# ---------------- Webhook route ----------------
+@app.route(f"/{TOKEN}", methods=["POST"])
+def webhook():
+    update = Update.de_json(request.get_json(force=True), application.bot)
+    application.update_queue.put_nowait(update)
+    return "ok"
 
-    print("Bot is running...")
-    application.run_polling()
+# ---------------- الصفحة الرئيسية ----------------
+@app.route("/")
+def home():
+    return "Bot is running!"
 
-# تشغيل Thread
-threading.Thread(target=run_bot).start()
-
-# تشغيل Flask
+# ---------------- تشغيل ----------------
 if __name__ == "__main__":
-    app_flask.run(host="0.0.0.0", port=10000)
+    application.bot.set_webhook(url=f"{URL}/{TOKEN}")
+    print("Webhook set!")
+    app.run(host="0.0.0.0", port=10000)

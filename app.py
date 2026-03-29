@@ -11,7 +11,7 @@ import asyncio
 TOKEN = "8594390840:AAHBJFt8rXamY6UCWQHUuVWLKNBEIBD9EOw"
 
 # ---------------- URL (Render link) ----------------
-URL = "https://telegram-bot-dj07.onrender.com"
+URL = "https://telegram-bot-tni5.onrender.com"
 
 user_url = {}
 

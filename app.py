@@ -6,11 +6,11 @@ import json
 from datetime import datetime
 
 # ---------------- TOKEN ----------------
-TOKEN = "8594390840:AAGqDDkPoowPHx63UtToQ2ZeihQ7k_qahMM"
+TOKEN = "8594390840:AAHqNRQhQLEERFV4SyguFApCy3Ipjj_SNA8"
 
 user_url = {}
 
-# ---------------- users storage ----------------
+# ---------------- USERS ----------------
 try:
     with open("users.json", "r") as f:
         users = json.load(f)
@@ -34,18 +34,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_users()
 
     keyboard = [
-        [InlineKeyboardButton("📸 تابعنا على إنستغرام", url="https://www.instagram.com/beweble")]
+        [InlineKeyboardButton("📸 Instagram", url="https://www.instagram.com/beweble")],
+        [InlineKeyboardButton("👨‍💻 Developer", callback_data="dev")]
     ]
 
     await update.message.reply_text(
-        "✨ أهلاً بك في MediaX Bot 🔥\n\n"
-        "📥 أرسل أي رابط وسأعطيك خيار التحميل\n"
-        "🎥 فيديو أو 🎵 موسيقى",
+        "✨ Welcome to MediaX Bot 🔥\n\n"
+        "📥 Send any link and choose download type\n"
+        "🎥 Video or 🎵 Audio\n\n"
+        "🤖 Developed by Rida Jomaa",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 # ---------------- DOWNLOAD ----------------
 async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
+
     user_id = update.message.from_user.id
     url = update.message.text
 
@@ -53,13 +58,13 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         [
-            InlineKeyboardButton("🎥 فيديو", callback_data="video"),
-            InlineKeyboardButton("🎵 موسيقى", callback_data="audio")
+            InlineKeyboardButton("🎥 Video", callback_data="video"),
+            InlineKeyboardButton("🎵 Audio", callback_data="audio")
         ]
     ]
 
     await update.message.reply_text(
-        "📥 اختر نوع التحميل 👇",
+        "📥 Choose download type:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -68,15 +73,21 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    if query.data == "dev":
+        await query.edit_message_text(
+            "👨‍💻 Developer:\nRida Jomaa\n\n✨ Telegram Bot Project"
+        )
+        return
+
     user_id = query.from_user.id
     url = user_url.get(user_id)
 
     if not url:
-        await query.edit_message_text("❌ أرسل الرابط أولاً")
+        await query.edit_message_text("❌ Please send a link first")
         return
 
     mode = query.data
-    msg = await query.edit_message_text("⏳ جاري التحميل...")
+    msg = await query.edit_message_text("⏳ Downloading...")
 
     try:
         if mode == "audio":
@@ -100,27 +111,23 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
 
-        # ---------------- SEND AUDIO ----------------
         if mode == "audio":
             audio_file = os.path.splitext(filename)[0] + ".mp3"
-
             if os.path.exists(audio_file):
                 with open(audio_file, "rb") as f:
                     await query.message.reply_audio(audio=f)
                 os.remove(audio_file)
-
-        # ---------------- SEND VIDEO ----------------
         else:
             if os.path.exists(filename):
                 with open(filename, "rb") as f:
                     await query.message.reply_video(video=f)
                 os.remove(filename)
 
-        await msg.edit_text("✅ تم التحميل بنجاح 🔥")
+        await msg.edit_text("✅ Done Successfully 🔥")
         user_url.pop(user_id, None)
 
     except Exception as e:
-        await msg.edit_text("❌ صار خطأ بالرابط أو التحميل")
+        await msg.edit_text("❌ Error while downloading")
         print("ERROR:", e)
 
 # ---------------- MAIN ----------------
